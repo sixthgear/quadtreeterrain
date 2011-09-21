@@ -39,32 +39,54 @@ class TerrainNode(object):
         ]
         for c in self.children:
             c.enabled = self.enabled
+
+    def simplify(self):
+
+        if self.children:
+
+            for c in self.children:
+                c.simplify()
+            
+            if self.children[0].children or \
+                self.children[1].children or \
+                self.children[2].children or \
+                self.children[3].children:
+                    return
+                
+            if self.children[0].enabled == \
+                self.children[1].enabled == \
+                self.children[2].enabled == \
+                self.children[3].enabled:
+                    self.enabled = self.children[0].enabled
+                    self.combine()
         
     def modify_quads_around_point(self, brush, state=False):
         """
         This is the main terrain deformation routine.
         """
-        
+                
         if self.enabled == state and not self.children: 
+            # rect is already where it needs to be
             return
                         
-        if collision.rect_within_circle(self.rect, brush):            
+        if collision.rect_within_circle(self.rect, brush):
+            # rect completely within circle
             self.combine()
             self.enabled = state
-            
+                        
         elif collision.rect_vs_circle(self.rect, brush):
-            
-            if not self.children and self.rect.width >= 8:
-                # todo: stop subdividing if the cirlce just skims a node
+            # rect partially within circle            
+            if not self.children and self.rect.width >= 8:                
                 self.subdivide()
                
             for c in self.children:
                 c.modify_quads_around_point(brush, state)
-                
-        if self.children:
-            if self.children[0] == self.children[1] == self.children[2] == self.children[3]:
-                self.enabled = self.children[0].enabled
-                self.combine()
+
+            self.simplify()
+                   
+        else:
+            pass
+
                                             
     def draw(self, highlight=None, root=True):
 
@@ -106,7 +128,7 @@ class App(pyglet.window.Window):
         self.brush = shapes.Circle(0, 0, 128)
         self.terrain = TerrainNode(0, 0, 800)        
         self.highlight = None
-        # pyglet.clock.schedule_interval(self.update, 1.0/30)
+        pyglet.clock.schedule_interval(self.update, 0.1)
         
     def circle(self, x, y, radius, num=12):    
         data = []
@@ -142,7 +164,7 @@ class App(pyglet.window.Window):
         
     def on_mouse_press(self, x, y, button, modifiers):
         if button == pyglet.window.mouse.LEFT:
-            self.terrain.modify_quads_around_point(self.brush, state=True)
+            self.terrain.modify_quads_around_point(self.brush, state=True)            
         elif button == pyglet.window.mouse.RIGHT:
             self.terrain.modify_quads_around_point(self.brush, state=False)
                 
