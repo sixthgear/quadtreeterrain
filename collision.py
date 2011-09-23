@@ -13,12 +13,12 @@ def rect_vs_circle(rect, circle):
     circle_dist = shapes.Point()
     circle_dist.x = abs(circle.x - rect.x - rect.width / 2)
     circle_dist.y = abs(circle.y - rect.y - rect.height / 2)
-    if (circle_dist.x > (rect.width / 2 + circle.radius)): return False
-    if (circle_dist.y > (rect.height / 2 + circle.radius)): return False
-    if (circle_dist.x <= (rect.width / 2)): return True
-    if (circle_dist.y <= (rect.height / 2)): return True
+    if (circle_dist.x >= (rect.width / 2 + circle.radius)): return False
+    if (circle_dist.y >= (rect.height / 2 + circle.radius)): return False
+    if (circle_dist.x < (rect.width / 2)): return True
+    if (circle_dist.y < (rect.height / 2)): return True
     corner_dist_sq = (circle_dist.x - rect.width/2) ** 2 + (circle_dist.y - rect.height/2) ** 2
-    return (corner_dist_sq <= (circle.radius ** 2))
+    return (corner_dist_sq < (circle.radius ** 2))
     
 # def rect_within_rect(rect_in, rect_out):    
 #     if rect_in.x < rect_out.x: return False

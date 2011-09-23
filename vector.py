@@ -28,7 +28,12 @@ class Vec2d(object):
         
     @property
     def magnitude(self):
-        return math.hypot(self.x, self.y)
+        if self.y == 0:
+            return abs(self.x)
+        elif self.x == 0:
+            return abs(self.y)
+        else:
+            return math.hypot(self.x, self.y)
 
     @property
     def magnitude_sq(self):
@@ -37,6 +42,13 @@ class Vec2d(object):
     @property
     def angle(self):
         return math.degrees(math.atan2(self.x, self.y))
+        
+    @property
+    def slope(self):
+        if self.x == 0:
+            return 0
+        return self.y/self.x
+        
         
     def zero(self):
         self.x = 0

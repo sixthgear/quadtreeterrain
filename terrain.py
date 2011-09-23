@@ -1,18 +1,23 @@
 import collections
 import collision
+import vector
+import random
 import pyglet
 import shapes
+import glsl
 import math
+import time
 
 class TerrainNode(object):
     """
     Quadtree node.
     """
-    def __init__(self, x, y, size, enabled=False, level=0):
+    def __init__(self, x, y, size, type=0, level=0):
         self.rect = shapes.AABB(x, y, size, size)    
         self.children = []
-        self.enabled = enabled
+        self.type = type
         self.slope = 0.0
+        self.slope_invert = False
         self.level = level
     
     def combine(self):
@@ -27,10 +32,10 @@ class TerrainNode(object):
         """
         size = self.rect.width // 2
         self.children = [
-            TerrainNode(self.rect.x, self.rect.y, size, self.enabled, self.level+1), 
-            TerrainNode(self.rect.x + size, self.rect.y, size, self.enabled, self.level+1), 
-            TerrainNode(self.rect.x, self.rect.y + size, size, self.enabled, self.level+1), 
-            TerrainNode(self.rect.x + size, self.rect.y + size, size, self.enabled, self.level+1), 
+            TerrainNode(self.rect.x, self.rect.y, size, self.type, self.level+1), 
+            TerrainNode(self.rect.x + size, self.rect.y, size, self.type, self.level+1), 
+            TerrainNode(self.rect.x, self.rect.y + size, size, self.type, self.level+1),
+            TerrainNode(self.rect.x + size, self.rect.y + size, size, self.type, self.level+1),
         ]
 
     def simplify(self):
@@ -45,11 +50,11 @@ class TerrainNode(object):
             self.children[3].children:
                 return
             
-        if self.children[0].enabled == \
-            self.children[1].enabled == \
-            self.children[2].enabled == \
-            self.children[3].enabled:
-                self.enabled = self.children[0].enabled
+        if self.children[0].type == \
+            self.children[1].type == \
+            self.children[2].type == \
+            self.children[3].type:
+                self.type = self.children[0].type
                 self.combine()
                         
                                             
@@ -58,7 +63,19 @@ class TerrainTree(object):
     Quadtree that represents terrain
     """
     
-    def __init__(self, x, y, size, min_node_size=None, max_level=None, enabled=False):
+    tex = pyglet.resource.texture('red.png')
+    shader = glsl.Shader(
+        vert=file('shaders/terrain.vert').read(),
+        frag=file('shaders/terrain.frag').read()
+    )    
+    num_types = 4
+        
+    def __init__(self, x, y, size, min_node_size=None, max_level=None, type=0):
+        
+        self.shader.bind()
+        self.shader.uniformi('tex0', self.tex.id)
+        self.shader.unbind()
+        
         if min_node_size and max_level:
             print "Cannot specify both min_node_size and max_level"
             pyglet.app.exit()
@@ -72,36 +89,65 @@ class TerrainTree(object):
             self.min_node_size = 8
             self.max_level = size // self.min_node_size
             
-        self.root = TerrainNode(x, y, size, enabled)
+        self.root = TerrainNode(x, y, size, type)        
     
-    def clear(self, state=False):        
+    def clear(self, type=0):        
         self.root.combine()
-        self.root.enabled = state
+        self.root.type = type
                         
-    def modify_quads_around_point(self, brush, state=False, node=None):
+    def modify_quads_around_point(self, brush, type=0, node=None):
         """
         This is the main terrain deformation routine.
         """
         
         node = node or self.root
              
-        if node.enabled == state and not node.children: 
+        if node.type == type and not node.children: 
             # rect is already where it needs to be
             return
                         
         if collision.rect_within_circle(node.rect, brush):
             # rect completely within circle
             node.combine()
-            node.enabled = state
+            node.type = type
+            node.slope = 0
                         
         elif collision.rect_vs_circle(node.rect, brush):
             # rect partially within circle
-            if not node.children and node.level < self.max_level:
-                node.subdivide()
-            for c in node.children:
-                self.modify_quads_around_point(brush, state, node=c)
-            node.simplify()
+            if node.level >= self.max_level:
+                pass
+            else:
+                if not node.children:
+                    node.subdivide()
+                for c in node.children:
+                    self.modify_quads_around_point(brush, type, node=c)
+                node.simplify()
+                self.find_slopes(node)
 
+    
+    def find_slopes(self, node):
+        """
+        Detect slopes
+        """
+        pass
+            
+    def modify_slope(self, node):
+        if node.slope == 0:
+            node.slope = 1.0
+            node.slope_invert = False
+        elif node.slope == 1.0 and not node.slope_invert:
+            node.slope = -1.0
+            node.slope_invert = False
+        elif node.slope == -1.0 and not node.slope_invert:
+            node.slope = 1.0
+            node.slope_invert = True
+        elif node.slope == 1.0 and node.slope_invert:
+            node.slope = -1.0
+            node.slope_invert = True
+        else:
+            node.slope = 0.0
+            node.slope_invert = False
+            
     def collide_point(self, x, y, node=None):
                 
         node = node or self.root
@@ -125,49 +171,55 @@ class TerrainTree(object):
             if node.children:
                 for c in node.children:
                     nodes += self.collide_circle(circle, node=c)
-            elif node.enabled:
+            elif node.type != 0:
                 return [node]        
         return nodes
         
                                                     
-    def draw(self, highlight=None, node=None):
+    def draw(self, highlight=None, mode=0, node=None):
         """
         Draw all the nodes in the tree.
         """
         node = node or self.root
         node_stack = [node]
-        v_background = []
-        v_foreground = []
-                
+
+        vertices = [[],[],[],[]]
+
         while node_stack:
             node = node_stack.pop()
             if node.children:
                 node_stack += node.children
                 continue            
-            if not node.enabled:
-                v_background += node.rect.corners
+            if node.type == 0:
+                vertices[0] += node.rect.corners
             else:
-                v_foreground += node.rect.corners
-        
+                if node.slope == 0:
+                    vertices[node.type] += node.rect.corners
+                elif node.slope == 1 and not node.slope_invert:
+                    vertices[node.type] += node.rect.corners[:6] + node.rect.corners[4:6]
+                elif node.slope == -1 and not node.slope_invert:
+                    vertices[node.type] += node.rect.corners[2:] + node.rect.corners[6:8]
+                elif node.slope == 1 and node.slope_invert:
+                    vertices[node.type] += node.rect.corners[4:] + node.rect.corners[:2] + node.rect.corners[:2]
+                elif node.slope == -1 and node.slope_invert:
+                    vertices[node.type] += node.rect.corners[6:] + node.rect.corners[:4] + node.rect.corners[2:4]
+                       
         # switch to fill mode
-        pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_FILL)
-        
+        pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_FILL)        
         # draw fills for enabled quads
-        pyglet.gl.glColor3f(0.2, 0.2, 0.2)
-        pyglet.graphics.draw(len(v_foreground)//2, pyglet.gl.GL_QUADS, ('v2f', v_foreground))
-    
+        for type in range(self.num_types):
+            pyglet.gl.glColor3f(0.1 + type * 0.15, 0.1 + type * 0.15, 0.1 + type * 0.15)
+            pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
+
         # switch to outline mode
         pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
-        
-        # draw outlines for disabled quads        
-        pyglet.gl.glColor3f(0.2,0.2,0.2)
-        pyglet.graphics.draw(len(v_background)//2, pyglet.gl.GL_QUADS, ('v2f', v_background))
-        
-        # draw outlines for enabled quads
-        pyglet.gl.glColor3f(1,1,1)
-        pyglet.graphics.draw(len(v_foreground)//2, pyglet.gl.GL_QUADS, ('v2f', v_foreground))
-        
-        # draw outlines for highlighted quad
+        for type in range(self.num_types):            
+            pyglet.gl.glColor3f(0.2 + type * 0.2, 0.2 + type * 0.2, 0.2 + type * 0.2)
+            pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
+                    
         if highlight:
-            pyglet.gl.glColor3f(1,0.5,0.5)
-            pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, ('v2f', highlight.rect.corners))                        
+            # switch to outline mode
+            pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)            
+            pyglet.gl.glColor3f(1.0, 0.5, 0.5)
+            # draw outlines for highlighted quad
+            pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, ('v2f', highlight.rect.corners))

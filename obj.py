@@ -5,11 +5,11 @@ import vector
 class GameObject(object):
     
     def __init__(self, x, y):
-        self.shape = shapes.Circle(0,0,16)
+        self.shape = shapes.Circle(0,0,8)
         self.pos = vector.Vec2d(x, y)
         self.lastpos = vector.Vec2d(x, y)
         self.thruster = vector.Vec2d(0, 0)
-        self.power = 3000
+        self.power = 5000
         self.dampening = 0.6
         
     def integrate(self, dt2):
@@ -20,7 +20,6 @@ class GameObject(object):
         p = self.pos
         self.pos = self.pos * (1.0 + self.dampening) - self.lastpos * self.dampening + accumulated_force * dt2
         self.lastpos = p
-        
         self.shape.x = self.pos.x
         self.shape.y = self.pos.y
         

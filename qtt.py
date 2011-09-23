@@ -1,10 +1,14 @@
-import terrain
-import drawing
-import shapes
 import pyglet
-import vector
+
+pyglet.resource.path = ['data']
+pyglet.resource.reindex()
+
+import drawing
 import math
 import obj
+import shapes
+import terrain
+import vector
 
 SQRT2 = 1.414213562373095
 
@@ -20,10 +24,13 @@ class App(pyglet.window.Window):
         self.paused = True
         self.operation = None
 
-        self.terrain = terrain.TerrainTree(0, 0, 512, max_level=8)        
+        self.terrain = terrain.TerrainTree(0, 0, 512, max_level=6)
         self.player = obj.GameObject(self.terrain.root.rect.width//2, self.terrain.root.rect.height//2)
         self.brush = shapes.Circle(0, 0, 128)
+        self.brush_type = 1
         self.highlight = None
+        
+        self.render_mode = 0
 
         self.play()
                 
@@ -46,46 +53,48 @@ class App(pyglet.window.Window):
 
     def update(self, dt):
         self.player.input(self.keys)
+        self.player.integrate(dt*dt)    
         
         for q in self.terrain.collide_circle(self.player.shape):
             """
             Finds all nodes currently in contact with the player.
             """
-            
             halfquad = q.rect.width // 2
             quad_center = vector.Vec2d(q.rect.x + halfquad, q.rect.y + halfquad)
-            penetration = quad_center - self.player.pos
+            delta = quad_center - self.player.pos
             rest = vector.Vec2d()
             rest_dist = 0
             
-            if abs(penetration.x) > abs(penetration.y):            
-                rest_dist = abs(penetration.x) - abs(self.player.shape.radius + halfquad) 
-                if penetration.x < 0: 
+            if abs(delta.x) > abs(delta.y):
+                rest_dist = abs(delta.x) - abs(self.player.shape.radius + halfquad) 
+                if delta.x < 0: 
                     rest.x = -rest_dist
                 else:
                     rest.x = rest_dist
-
-            elif abs(penetration.x) < abs(penetration.y):
-                rest_dist = abs(penetration.y) - abs(self.player.shape.radius + halfquad) 
-                if penetration.y < 0:
+            
+            elif abs(delta.x) < abs(delta.y):
+                rest_dist = abs(delta.y) - abs(self.player.shape.radius + halfquad) 
+                if delta.y < 0:
                     rest.y = -rest_dist
                 else:
                     rest.y = rest_dist
-
-            else:                
-                # diagonal collision            
-                rest_dist = abs(penetration.magnitude - (self.player.shape.radius + halfquad * SQRT2))
-                rest = penetration.normal * -rest_dist
-                print 'CORNER CASE', rest
-                
-            self.player.pos += rest
-            self.player.last_pos = self.player.pos
             
-        self.player.integrate(dt*dt)    
+            else:                
+                # diagonal collision
+                print 'CORNER CASE', rest
+                rest_dist = abs(delta.magnitude - (self.player.shape.radius + halfquad * SQRT2))
+                rest = delta.normal * -rest_dist
+                                            
+            self.player.pos += rest
+            self.player.shape.x = self.player.pos.x
+            self.player.shape.y = self.player.pos.y
+            
+            # n = len(self.terrain.collide_circle(self.player.shape))
+            # if n: print n        
         
     def on_draw(self):
         self.clear()
-        self.terrain.draw(highlight = self.highlight)
+        self.terrain.draw(highlight=self.highlight, mode=self.render_mode)
         drawing.circle(self.player.shape.x, self.player.shape.y, self.player.shape.radius, num=8)
         drawing.circle(self.brush.x, self.brush.y, self.brush.radius, num=32)
             
@@ -94,15 +103,28 @@ class App(pyglet.window.Window):
             self.brush.radius = max(16, self.brush.radius // 2)
         elif symbol == pyglet.window.key.BRACKETRIGHT:
             self.brush.radius = min(512, self.brush.radius * 2)
+        elif symbol == pyglet.window.key._1:
+            self.brush_type = 0
+        elif symbol == pyglet.window.key._2:
+            self.brush_type = 1
+        elif symbol == pyglet.window.key._3:
+            self.brush_type = 2            
+        elif symbol == pyglet.window.key._4:
+            self.brush_type = 3                        
         elif symbol == pyglet.window.key.R:
             self.terrain.clear()
             self.play()
+        elif symbol == pyglet.window.key.G:
+            self.render_mode = abs(self.render_mode - 1)            
         elif symbol == pyglet.window.key.SPACE:
             self.operation = self.terrain.detect_slopes()
             pyglet.clock.schedule_interval(self.do_operation, 1.0/60)            
         elif symbol == pyglet.window.key.ESCAPE:
             pyglet.app.exit()    
         
+    def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
+        self.brush_type = (self.brush_type + scroll_y) % 4
+                
     def on_mouse_motion(self, x, y, dx, dy):
         if self.operation: return
         self.brush.x = x
@@ -112,9 +134,9 @@ class App(pyglet.window.Window):
     def on_mouse_press(self, x, y, button, modifiers):
         if self.operation: return
         if button == pyglet.window.mouse.LEFT:
-            self.terrain.modify_quads_around_point(self.brush, state=True)            
+            self.terrain.modify_quads_around_point(self.brush, type=self.brush_type)
         elif button == pyglet.window.mouse.RIGHT:
-            self.terrain.modify_quads_around_point(self.brush, state=False)
+            self.terrain.modify_slope(node=self.highlight)
                 
     def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
         self.on_mouse_motion(x, y, dx, dy)
