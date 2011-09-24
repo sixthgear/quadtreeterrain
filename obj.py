@@ -9,7 +9,7 @@ class GameObject(object):
         self.pos = vector.Vec2d(x, y)
         self.lastpos = vector.Vec2d(x, y)
         self.thruster = vector.Vec2d(0, 0)
-        self.power = 5000
+        self.power = 6000
         self.dampening = 0.6
         
     def integrate(self, dt2):

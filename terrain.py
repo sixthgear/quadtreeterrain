@@ -19,7 +19,7 @@ class TerrainNode(object):
         self.slope = 0.0
         self.slope_invert = False
         self.level = level
-    
+
     def combine(self):
         """
         Remove all descendants.
@@ -55,8 +55,12 @@ class TerrainNode(object):
             self.children[2].type == \
             self.children[3].type:
                 self.type = self.children[0].type
+                # self.slope = 0
                 self.combine()
-                        
+                
+        # TODO: check for slopes to simplify
+        # \
+        # . \               
                                             
 class TerrainTree(object):
     """
@@ -102,9 +106,9 @@ class TerrainTree(object):
         
         node = node or self.root
              
-        if node.type == type and not node.children: 
+        # if node.type == type and not node.children: 
             # rect is already where it needs to be
-            return
+            # return
                         
         if collision.rect_within_circle(node.rect, brush):
             # rect completely within circle
@@ -115,21 +119,57 @@ class TerrainTree(object):
         elif collision.rect_vs_circle(node.rect, brush):
             # rect partially within circle
             if node.level >= self.max_level:
-                pass
+                self.find_slopes(node, brush, type)                
             else:
                 if not node.children:
                     node.subdivide()
                 for c in node.children:
                     self.modify_quads_around_point(brush, type, node=c)
                 node.simplify()
-                self.find_slopes(node)
+                # self.find_slopes(node, brush, type)
 
     
-    def find_slopes(self, node):
+    def find_slopes(self, node, brush, type):
         """
         Detect slopes
-        """
-        pass
+        """          
+        if node.type == type: 
+            return
+        
+        x = (node.rect.x - brush.x)
+        y = (node.rect.y - brush.y)
+        x_sq = x ** 2
+        y_sq = y ** 2
+        x2_sq = (node.rect.x2 - brush.x) ** 2
+        y2_sq = (node.rect.y2 - brush.y) ** 2
+        brush_r_sq = brush.radius**2
+        # check x
+
+        # the x coordinate where the circle enters the bottom
+        x_entry_bottom_sq = brush_r_sq - y_sq
+        # the x coordinate where the circle enters the top
+        x_entry_top_sq = brush_r_sq - y2_sq
+        # the y coordinate where the circle enters the left
+        y_entry_left_sq = brush_r_sq - x_sq
+        # the y coordinate where the circle enters the right
+        y_entry_right_sq = brush_r_sq - x2_sq
+
+        if y < 0 and min(x_sq, x2_sq) < x_entry_bottom_sq < max(x_sq, x2_sq):
+            if x < 0 and min(y_sq, y2_sq) < y_entry_left_sq < max(y_sq, y2_sq):
+                node.type = type
+                node.slope = -1
+            if x > 0 and min(y_sq, y2_sq) < y_entry_right_sq < max(y_sq, y2_sq):
+                node.type = type
+                node.slope = 1
+        if y > 0 and min(x_sq, x2_sq) < x_entry_top_sq < max(x_sq, x2_sq):
+            if x < 0 and min(y_sq, y2_sq) < y_entry_left_sq < max(y_sq, y2_sq):
+                node.type = type
+                node.slope = 1
+                node.slope_invert = True
+            if x > 0 and min(y_sq, y2_sq) < y_entry_right_sq < max(y_sq, y2_sq):
+                node.type = type
+                node.slope = -1
+                node.slope_invert = True
             
     def modify_slope(self, node):
         if node.slope == 0:
@@ -203,7 +243,8 @@ class TerrainTree(object):
                     vertices[node.type] += node.rect.corners[4:] + node.rect.corners[:2] + node.rect.corners[:2]
                 elif node.slope == -1 and node.slope_invert:
                     vertices[node.type] += node.rect.corners[6:] + node.rect.corners[:4] + node.rect.corners[2:4]
-                       
+                    
+        pyglet.gl.glPushAttrib(pyglet.gl.GL_POLYGON_BIT)
         # switch to fill mode
         pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_FILL)        
         # draw fills for enabled quads
@@ -217,9 +258,11 @@ class TerrainTree(object):
             pyglet.gl.glColor3f(0.2 + type * 0.2, 0.2 + type * 0.2, 0.2 + type * 0.2)
             pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
                     
-        if highlight:
+        for h in highlight:
             # switch to outline mode
-            pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)            
+            pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
             pyglet.gl.glColor3f(1.0, 0.5, 0.5)
             # draw outlines for highlighted quad
-            pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, ('v2f', highlight.rect.corners))
+            pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, ('v2f', h.rect.corners))
+        
+        pyglet.gl.glPopAttrib()

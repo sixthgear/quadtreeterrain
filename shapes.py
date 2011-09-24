@@ -1,17 +1,23 @@
 class Point(object):
     __slots__ = ['x', 'y']
-    def __init__(self, x=0, y=0):
-        self.x = x
-        self.y = y
+    def __init__(self, x=0.0, y=0.0):
+        self.x = float(x)
+        self.y = float(y)
         
 class AABB(object):
     __slots__ = ['x', 'y', 'width', 'height']
     def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        
+        self.x = float(x)
+        self.y = float(y)
+        self.width = float(width)
+        self.height = float(height)
+    
+    @property
+    def x2(self): return self.x + self.width
+    
+    @property
+    def y2(self): return self.y + self.height
+    
     @property
     def corners(self):
         return [
