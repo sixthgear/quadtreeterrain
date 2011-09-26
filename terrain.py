@@ -26,7 +26,6 @@ class TerrainNode(object):
         self.slope_invert = False
         self.neighbor_mask = 0
         
-
     def combine(self):
         """
         Remove all descendants.
@@ -93,21 +92,20 @@ class TerrainTree(object):
         self.num_types = 4
                 
         # RENDERING
-        self.fb_a = framebuffer.Framebuffer(width=size, height=size)
-        self.fb_b = framebuffer.Framebuffer(width=size, height=size)
+        self.fbchain = framebuffer.FramebufferChain(width=size, height=size)
         self.shaders = {        
             'blur_h': glsl.Shader(
-                        vert=file('shaders/terrain.vert').read(), 
+                        # vert=file('shaders/terrain.vert').read(), 
                         frag=file('shaders/blur_h.frag').read()),
             'blur_v': glsl.Shader(
-                        vert=file('shaders/terrain.vert').read(), 
+                        # vert=file('shaders/terrain.vert').read(), 
                         frag=file('shaders/blur_v.frag').read()),
             'threshold': glsl.Shader(
-                        vert=file('shaders/terrain.vert').read(), 
+                        # vert=file('shaders/terrain.vert').read(), 
                         frag=file('shaders/threshold.frag').read())
         }    
         with self.shaders['blur_h'] as shdr:
-            shdr.uniformf('size', 1.0/512)        
+            shdr.uniformf('size', 1.0/512)
         with self.shaders['blur_v'] as shdr:
             shdr.uniformf('size', 1.0/512)
         
@@ -264,34 +262,31 @@ class TerrainTree(object):
                     vertices[node.type] += node.rect.corners[4:] + node.rect.corners[:2] + node.rect.corners[:2]
                 elif node.slope == -1 and node.slope_invert:
                     vertices[node.type] += node.rect.corners[6:] + node.rect.corners[:4] + node.rect.corners[2:4]
-        
-        
-        # render          
+                
+  
         if mode == RNDR_SHADED: 
             
-            # clear out our framebuffers
-            self.fb_a.clear()
-            self.fb_b.clear()
-            
-            # attach our framebuffer rending world geometry
-            with self.fb_a as fb:
-                
-                for type in range(self.num_types):
+            # attach our framebuffer for rendering world geometry
+            with self.fbchain as fb:              
+                # render to fb  
+                for type in range(self.num_types):                    
                     if type == 0: 
-                        continue                    
-                    pyglet.gl.glColor3f(1, 1, 1)
-                    pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
+                        pyglet.gl.glColor3f(0, 0, 0)
+                    else:
+                        pyglet.gl.glColor3f(1, 1, 1)
                         
-            for i in range(9):
-                
-                with self.fb_b as fb:
-                    self.fb_a.draw(shader=self.shaders['blur_h'])
-                    
-                with self.fb_a as fb: 
-                    self.fb_b.draw(shader=self.shaders['blur_v'])
+                    pyglet.graphics.draw(
+                        len(vertices[type]) // 2, 
+                        pyglet.gl.GL_QUADS, 
+                        ('v2f', vertices[type]))
+                        
+            # perform 8x gaussian blur                        
+            for i in range(8):
+                self.fbchain.draw_fb(shader=self.shaders['blur_h'])
+                self.fbchain.draw_fb(shader=self.shaders['blur_v'])
                     
             # draw the final fb to the default context
-            self.fb_a.draw(fb=None, shader=self.shaders['threshold'])
+            self.fbchain.draw(shader=self.shaders['threshold'])            
             
         elif mode == RNDR_WIREFRAME:
                     

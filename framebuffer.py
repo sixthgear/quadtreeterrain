@@ -2,6 +2,39 @@ from pyglet.gl import *
 import ctypes
 import glsl
 
+class FramebufferChain(object):
+    """
+    A object that holds two framebuffers for rendering effects back and forth
+    """
+    def __init__(self, width, height, num=2):
+        self.framebuffers = [Framebuffer(width, height) for f in range(num)]
+        self.fb_index = 0
+
+    def __enter__(self):        
+        self.framebuffers[self.fb_index].bind()
+        return self
+        
+    def __exit__(self, type, value, traceback):
+        self.framebuffers[self.fb_index].unbind()
+        # self.fb_index = (self.fb_index + 1) % 2
+
+    def draw_fb(self, shader=None):
+        """
+        Draw to the next fb in the chain
+        """
+        next_fb = (self.fb_index + 1) % 2
+        self.framebuffers[next_fb].bind()
+        self.framebuffers[self.fb_index].draw(shader=shader)
+        self.framebuffers[next_fb].unbind()
+        self.fb_index = next_fb
+    
+    def draw(self, shader=None):
+        """
+        Draw to the default fb
+        """        
+        self.framebuffers[self.fb_index].draw(shader=shader)
+        
+        
 class Framebuffer(object):
     """
     """
