@@ -127,17 +127,4 @@ class Shader(object):
 		# uplaod the 4x4 floating point matrix
 		glUniformMatrix4fv(loc, 1, False, (c_float * 16)(*mat))
 		
-		
-# utility function to copy the framebuffer into a texture
-def copyFramebuffer(tex, *size):
-    # if we are given a new size
-    if len(size) == 2:
-        # resize the texture to match
-        tex.width, tex.height = size[0], size[1]        
-    # bind the texture
-    glBindTexture(tex.target, tex.id)
-    # copy the framebuffer
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, tex.width, tex.height, 0);
-    # unbind the texture
-    glBindTexture(tex.target, 0)
 	

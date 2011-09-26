@@ -4,14 +4,13 @@ pyglet.resource.path = ['data']
 pyglet.resource.reindex()
 
 import collections
+import collision
 import drawing
 import math
 import obj
 import shapes
 import terrain
 import vector
-
-SQRT2 = 1.414213562373095
 
 class App(pyglet.window.Window):
     
@@ -25,7 +24,7 @@ class App(pyglet.window.Window):
         self.paused = True
         self.operation = None
 
-        self.terrain = terrain.TerrainTree(0, 0, 512, max_level=5)
+        self.terrain = terrain.TerrainTree(0, 0, 512, max_level=6)
         self.player = obj.GameObject(self.terrain.root.rect.width//2, self.terrain.root.rect.height//2)
         self.brush = shapes.Circle(0, 0, 128)
         self.brush_type = 1
@@ -70,45 +69,12 @@ class App(pyglet.window.Window):
         self.player.integrate(dt*dt)    
         
         for q in self.terrain.collide_circle(self.player.shape):
-            """
-            Finds all nodes currently in contact with the player.
-            """
-            halfquad = q.rect.width // 2
-            quad_center = vector.Vec2d(q.rect.x + halfquad, q.rect.y + halfquad)
-            delta = quad_center - self.player.pos
-            rest = vector.Vec2d()
-            rest_dist = 0
-            
-            if abs(delta.x) > abs(delta.y):
-                rest_dist = abs(delta.x) - (self.player.shape.radius + halfquad)
-                if delta.x < 0: 
-                    rest.x = -rest_dist
-                else:
-                    rest.x = rest_dist
-            
-            elif abs(delta.x) < abs(delta.y):
-                rest_dist = abs(delta.y) - (self.player.shape.radius + halfquad)
-                if delta.y < 0:
-                    rest.y = -rest_dist
-                else:
-                    rest.y = rest_dist
-            
-            else:                
-                # diagonal collision                
-                rest_dist = delta.magnitude - (self.player.shape.radius + halfquad * SQRT2)
-                rest = delta.normal * -rest_dist
-                print 'CORNER CASE', rest                
-                # self.pause()
-                return
-                
+            rest = collision.resp_circle_vs_full(self.player.shape, q)
             if q not in self.highlight:
                 self.highlight.append(q)
             self.player.pos += rest
             self.player.shape.x = self.player.pos.x
             self.player.shape.y = self.player.pos.y
-            
-            # n = len(self.terrain.collide_circle(self.player.shape))
-            # if n: print n        
         
     def on_draw(self):
         self.clear()

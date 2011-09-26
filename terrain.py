@@ -1,24 +1,29 @@
 import collections
-import collision
-import vector
 import random
-import pyglet
-import shapes
-import glsl
 import math
 import time
+
+import pyglet
+import framebuffer
+import glsl
+
+import collision
+import shapes
+import vector
 
 class TerrainNode(object):
     """
     Quadtree node.
     """
     def __init__(self, x, y, size, type=0, level=0):
-        self.rect = shapes.AABB(x, y, size, size)    
+        self.level = level
         self.children = []
         self.type = type
+        self.rect = shapes.AABB(x, y, size, size)    
         self.slope = 0.0
         self.slope_invert = False
-        self.level = level
+        self.neighbor_mask = 0
+        
 
     def combine(self):
         """
@@ -66,20 +71,9 @@ class TerrainTree(object):
     """
     Quadtree that represents terrain
     """
-    
-    tex = pyglet.resource.texture('red.png')
-    shader = glsl.Shader(
-        vert=file('shaders/terrain.vert').read(),
-        frag=file('shaders/terrain.frag').read()
-    )    
-    num_types = 4
         
     def __init__(self, x, y, size, min_node_size=None, max_level=None, type=0):
-        
-        self.shader.bind()
-        self.shader.uniformi('tex0', self.tex.id)
-        self.shader.unbind()
-        
+                
         if min_node_size and max_level:
             print "Cannot specify both min_node_size and max_level"
             pyglet.app.exit()
@@ -94,7 +88,19 @@ class TerrainTree(object):
             self.max_level = size // self.min_node_size
             
         self.root = TerrainNode(x, y, size, type)        
-    
+                
+        # RENDERING
+        self.fb_a = framebuffer.Framebuffer()
+        self.fb_b = framebuffer.Framebuffer()
+        self.shaders = {        
+            'blur_h': glsl.Shader(vert=file('shaders/terrain.vert').read(), frag=file('shaders/blur_h.frag').read()),
+            'blur_v': glsl.Shader(vert=file('shaders/terrain.vert').read(), frag=file('shaders/blur_v.frag').read()),
+            'threshold': glsl.Shader(vert=file('shaders/terrain.vert').read(), frag=file('shaders/threshold.frag').read())
+        }
+        
+        self.num_types = 4
+
+        
     def clear(self, type=0):        
         self.root.combine()
         self.root.type = type
@@ -172,6 +178,9 @@ class TerrainTree(object):
                 node.slope_invert = True
             
     def modify_slope(self, node):
+        """
+        Temporary function to cycle through the list of possible slopes for a node.
+        """
         if node.slope == 0:
             node.slope = 1.0
             node.slope_invert = False
@@ -243,20 +252,58 @@ class TerrainTree(object):
                     vertices[node.type] += node.rect.corners[4:] + node.rect.corners[:2] + node.rect.corners[:2]
                 elif node.slope == -1 and node.slope_invert:
                     vertices[node.type] += node.rect.corners[6:] + node.rect.corners[:4] + node.rect.corners[2:4]
-                    
+        
         pyglet.gl.glPushAttrib(pyglet.gl.GL_POLYGON_BIT)
-        # switch to fill mode
-        pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_FILL)        
-        # draw fills for enabled quads
-        for type in range(self.num_types):
-            pyglet.gl.glColor3f(0.1 + type * 0.15, 0.1 + type * 0.15, 0.1 + type * 0.15)
-            pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
-
-        # switch to outline mode
-        pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
-        for type in range(self.num_types):            
-            pyglet.gl.glColor3f(0.2 + type * 0.2, 0.2 + type * 0.2, 0.2 + type * 0.2)
-            pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
+        
+        if mode==1:
+            # attach our framebuffer for blurring
+            self.fb_a.bind()
+            self.fb_a.clear()
+            # switch to fill mode
+            pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_FILL)        
+            # draw fills for enabled quads
+            for type in range(self.num_types):
+                if type == 0: continue
+                # pyglet.gl.glColor3f(0.1 + type * 0.15, 0.1 + type * 0.15, 0.1 + type * 0.15)            
+                pyglet.gl.glColor3f(1,1,1)
+                pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
+            
+            self.fb_a.unbind()
+            
+            self.fb_b.bind()
+            
+            self.shaders['blur_h'].bind()
+            self.shaders['blur_h'].uniformf('blurSize', 1.0/512);
+            self.fb_a.draw()
+            self.shaders['blur_h'].unbind()
+            
+            self.fb_b.unbind()
+            
+            self.fb_a.bind()
+            self.fb_a.clear()
+            
+            self.shaders['blur_v'].bind()                        
+            self.shaders['blur_v'].uniformf('blurSize', 1.0/512);
+            
+            self.fb_b.draw()
+            self.shaders['blur_v'].unbind()
+            
+            self.fb_a.unbind()
+            self.shaders['threshold'].bind()
+            self.fb_a.draw()
+            self.shaders['threshold'].unbind()
+            
+        else:
+            for type in range(self.num_types):
+                if type == 0: continue
+                pyglet.gl.glColor3f(0.1 + type * 0.15, 0.1 + type * 0.15, 0.1 + type * 0.15)            
+                # pyglet.gl.glColor3f(1,1,1)
+                pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))                              
+            # switch to outline mode
+            pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
+            for type in range(self.num_types):            
+                pyglet.gl.glColor3f(0.2 + type * 0.2, 0.2 + type * 0.2, 0.2 + type * 0.2)
+                pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
                     
         for h in highlight:
             # switch to outline mode
