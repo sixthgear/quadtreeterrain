@@ -125,7 +125,6 @@ class App(pyglet.window.Window):
         # if not node:
         #     return
         #         
-
         # self.debug_label.text = 'x: %d  x2: %d  y: %d  y2: %d' % (x,x2,y,y2)
         # self.debug_label.text = 'xbot: %d  xtop: %d  yleft: %d  yright: %d' % (x_entry_bottom_sq, x_entry_top_sq, y_entry_left_sq, y_entry_right_sq)
         

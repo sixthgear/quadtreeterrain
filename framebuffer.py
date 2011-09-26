@@ -68,8 +68,10 @@ class Framebuffer(object):
         assert glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) == GL_FRAMEBUFFER_COMPLETE_EXT
         
         glBindTexture(self.tex.target, self.tex.id)
-        glTexParameteri(self.tex.target, GL_TEXTURE_WRAP_S, GL_CLAMP)
-        glTexParameteri(self.tex.target, GL_TEXTURE_WRAP_T, GL_CLAMP)
+        glTexParameteri(self.tex.target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(self.tex.target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+    	glTexParameteri(self.tex.target, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+    	glTexParameteri(self.tex.target, GL_TEXTURE_MIN_FILTER, GL_LINEAR)            
         glBindTexture(self.tex.target, 0)
                                     
     def bind(self):        
