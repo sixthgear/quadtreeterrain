@@ -11,6 +11,8 @@ import collision
 import shapes
 import vector
 
+RNDR_WIREFRAME, RNDR_SHADED = range(2)
+
 class TerrainNode(object):
     """
     Quadtree node.
@@ -100,6 +102,11 @@ class TerrainTree(object):
         
         self.num_types = 4
 
+        with self.shaders['blur_h'] as shdr:
+            shdr.uniformf('blurSize', 1.0/512);
+        
+        with self.shaders['blur_v'] as shdr:
+            shdr.uniformf('blurSize', 1.0/512);
         
     def clear(self, type=0):        
         self.root.combine()
@@ -231,9 +238,11 @@ class TerrainTree(object):
         """
         node = node or self.root
         node_stack = [node]
-
-        vertices = [[],[],[],[]]
-
+        vertices = [[],[],[],[]]        
+        
+        # build world geometry
+        # it might be nice to cache this on the gpu with a vbo        
+        
         while node_stack:
             node = node_stack.pop()
             if node.children:
@@ -253,63 +262,56 @@ class TerrainTree(object):
                 elif node.slope == -1 and node.slope_invert:
                     vertices[node.type] += node.rect.corners[6:] + node.rect.corners[:4] + node.rect.corners[2:4]
         
-        pyglet.gl.glPushAttrib(pyglet.gl.GL_POLYGON_BIT)
         
-        if mode==1:
-            # attach our framebuffer for blurring
-            self.fb_a.bind()
+        # render          
+        if mode == RNDR_SHADED: 
+            
+            # clear out our framebuffers
             self.fb_a.clear()
-            # switch to fill mode
-            pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_FILL)        
-            # draw fills for enabled quads
+            self.fb_b.clear()
+            
+            # attach our framebuffer rending world geometry
+            with self.fb_a as fb:
+                
+                for type in range(self.num_types):
+                    if type == 0: 
+                        continue                    
+                    pyglet.gl.glColor3f(1, 1, 1)
+                    pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
+                        
+            for i in range(9):
+                
+                with self.fb_b as fb:
+                    self.fb_a.draw(shader=self.shaders['blur_h'])
+                    
+                with self.fb_a as fb: 
+                    self.fb_b.draw(shader=self.shaders['blur_v'])
+                    
+            # draw the final fb to the default context
+            self.fb_a.draw(fb=None, shader=self.shaders['threshold'])
+            
+        elif mode == RNDR_WIREFRAME:
+                    
+            # draw solids            
             for type in range(self.num_types):
-                if type == 0: continue
-                # pyglet.gl.glColor3f(0.1 + type * 0.15, 0.1 + type * 0.15, 0.1 + type * 0.15)            
-                pyglet.gl.glColor3f(1,1,1)
+                if type == 0: 
+                    continue
+                pyglet.gl.glColor3f(0.1 + type * 0.15, 0.1 + type * 0.15, 0.1 + type * 0.15)                            
                 pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
-            
-            self.fb_a.unbind()
-            
-            self.fb_b.bind()
-            
-            self.shaders['blur_h'].bind()
-            self.shaders['blur_h'].uniformf('blurSize', 1.0/512);
-            self.fb_a.draw()
-            self.shaders['blur_h'].unbind()
-            
-            self.fb_b.unbind()
-            
-            self.fb_a.bind()
-            self.fb_a.clear()
-            
-            self.shaders['blur_v'].bind()                        
-            self.shaders['blur_v'].uniformf('blurSize', 1.0/512);
-            
-            self.fb_b.draw()
-            self.shaders['blur_v'].unbind()
-            
-            self.fb_a.unbind()
-            self.shaders['threshold'].bind()
-            self.fb_a.draw()
-            self.shaders['threshold'].unbind()
-            
-        else:
-            for type in range(self.num_types):
-                if type == 0: continue
-                pyglet.gl.glColor3f(0.1 + type * 0.15, 0.1 + type * 0.15, 0.1 + type * 0.15)            
-                # pyglet.gl.glColor3f(1,1,1)
-                pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))                              
+                
             # switch to outline mode
+            pyglet.gl.glPushAttrib(pyglet.gl.GL_POLYGON_BIT)
             pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
             for type in range(self.num_types):            
                 pyglet.gl.glColor3f(0.2 + type * 0.2, 0.2 + type * 0.2, 0.2 + type * 0.2)
                 pyglet.graphics.draw(len(vertices[type]) // 2, pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
+            pyglet.gl.glPopAttrib()
                     
         for h in highlight:
             # switch to outline mode
+            pyglet.gl.glPushAttrib(pyglet.gl.GL_POLYGON_BIT)
             pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
             pyglet.gl.glColor3f(1.0, 0.5, 0.5)
             # draw outlines for highlighted quad
             pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, ('v2f', h.rect.corners))
-        
-        pyglet.gl.glPopAttrib()
+            pyglet.gl.glPopAttrib()

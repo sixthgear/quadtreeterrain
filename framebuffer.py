@@ -6,6 +6,7 @@ class Framebuffer(object):
     """
     """
     def __init__(self):
+        self.bound = False
         self.id = GLuint()
         self.tex = pyglet.image.Texture.create(512, 512, GL_RGBA)
         
@@ -36,10 +37,11 @@ class Framebuffer(object):
         glTexParameteri(self.tex.target, GL_TEXTURE_WRAP_T, GL_CLAMP)
         glBindTexture(self.tex.target, 0)
                                     
-    def bind(self):
+    def bind(self):        
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, self.id.value)
         glPushAttrib(GL_VIEWPORT_BIT)
         glViewport(0,0, 512, 512)
+        self.bound = True
         
     def unbind(self):
         """
@@ -47,14 +49,31 @@ class Framebuffer(object):
         """
         glPopAttrib()
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0)
+        self.bound = False
 
     def delete(self):
         glDeleteFramebuffersEXT(1, byref(self.id));
         
     def clear(self):
-        glClear(GL_COLOR_BUFFER_BIT)
+        if not self.bound: 
+            self.bind()
+            glClear(GL_COLOR_BUFFER_BIT)
+            self.unbind()
+        else:
+            glClear(GL_COLOR_BUFFER_BIT)
+            
+    def __enter__(self):
+        self.bind()
+        return self
         
-    def draw(self):
+    def __exit__(self, type, value, traceback):
+        self.unbind()
+                
+    def draw(self, fb=None, shader=None):        
+        if fb: fb.bind()
+        if shader: shader.bind()
+        
+        # draw a fullscreen quad with the fb texture
         pyglet.gl.glBindTexture(self.tex.target, self.tex.id)        
         pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, 
             ('v2f', [0,0,0,512,512,512,512,0]), 
@@ -62,4 +81,5 @@ class Framebuffer(object):
         )
         pyglet.gl.glBindTexture(self.tex.target, 0)
         
-        
+        if shader: shader.unbind()            
+        if fb: fb.unbind()

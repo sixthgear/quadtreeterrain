@@ -17,7 +17,7 @@ class App(pyglet.window.Window):
     def __init__(self):
         super(App, self).__init__(caption="Quadtrees", width=512, height=512)
         self.set_mouse_visible(False)        
-        # self.set_location(0, 900-self.height)
+        self.set_location(0, 900-self.height)
         self.keys = pyglet.window.key.KeyStateHandler()
         self.push_handlers(self.keys)        
 
