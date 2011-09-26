@@ -94,6 +94,9 @@ class TerrainTree(object):
         # RENDERING
         self.fbchain = framebuffer.FramebufferChain(width=size, height=size)
         self.shaders = {        
+            'basic': glsl.Shader(
+                        # vert=file('shaders/terrain.vert').read(), 
+                        frag=file('shaders/basic.frag').read()),        
             'blur_h': glsl.Shader(
                         # vert=file('shaders/terrain.vert').read(), 
                         frag=file('shaders/blur_h.frag').read()),
@@ -286,7 +289,8 @@ class TerrainTree(object):
                 self.fbchain.draw_fb(shader=self.shaders['blur_v'])
                     
             # draw the final fb to the default context
-            self.fbchain.draw(shader=self.shaders['threshold'])            
+            self.fbchain.draw(shader=self.shaders['threshold'])
+            # self.fbchain.draw(shader=self.shaders['basic'])
             
         elif mode == RNDR_WIREFRAME:
                     
