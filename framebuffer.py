@@ -5,10 +5,12 @@ import glsl
 class Framebuffer(object):
     """
     """
-    def __init__(self):
+    def __init__(self, width, height):
         self.bound = False
         self.id = GLuint()
-        self.tex = pyglet.image.Texture.create(512, 512, GL_RGBA)
+        self.width = width
+        self.height = height
+        self.tex = pyglet.image.Texture.create(width, height, GL_RGBA)
         
         # create a new FBO
         glGenFramebuffersEXT(1, byref(self.id))        
@@ -40,7 +42,7 @@ class Framebuffer(object):
     def bind(self):        
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, self.id.value)
         glPushAttrib(GL_VIEWPORT_BIT)
-        glViewport(0,0, 512, 512)
+        glViewport(0,0, self.width, self.height)
         self.bound = True
         
     def unbind(self):
@@ -76,7 +78,7 @@ class Framebuffer(object):
         # draw a fullscreen quad with the fb texture
         pyglet.gl.glBindTexture(self.tex.target, self.tex.id)        
         pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, 
-            ('v2f', [0,0,0,512,512,512,512,0]), 
+            ('v2f', [0,0,0,self.height,self.width,self.height,self.width,0]), 
             ('t2f', [0,0,0,1,1,1,1,0])
         )
         pyglet.gl.glBindTexture(self.tex.target, 0)

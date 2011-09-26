@@ -90,23 +90,26 @@ class TerrainTree(object):
             self.max_level = size // self.min_node_size
             
         self.root = TerrainNode(x, y, size, type)        
+        self.num_types = 4
                 
         # RENDERING
-        self.fb_a = framebuffer.Framebuffer()
-        self.fb_b = framebuffer.Framebuffer()
+        self.fb_a = framebuffer.Framebuffer(width=size, height=size)
+        self.fb_b = framebuffer.Framebuffer(width=size, height=size)
         self.shaders = {        
-            'blur_h': glsl.Shader(vert=file('shaders/terrain.vert').read(), frag=file('shaders/blur_h.frag').read()),
-            'blur_v': glsl.Shader(vert=file('shaders/terrain.vert').read(), frag=file('shaders/blur_v.frag').read()),
-            'threshold': glsl.Shader(vert=file('shaders/terrain.vert').read(), frag=file('shaders/threshold.frag').read())
-        }
-        
-        self.num_types = 4
-
+            'blur_h': glsl.Shader(
+                        vert=file('shaders/terrain.vert').read(), 
+                        frag=file('shaders/blur_h.frag').read()),
+            'blur_v': glsl.Shader(
+                        vert=file('shaders/terrain.vert').read(), 
+                        frag=file('shaders/blur_v.frag').read()),
+            'threshold': glsl.Shader(
+                        vert=file('shaders/terrain.vert').read(), 
+                        frag=file('shaders/threshold.frag').read())
+        }    
         with self.shaders['blur_h'] as shdr:
-            shdr.uniformf('blurSize', 1.0/512);
-        
+            shdr.uniformf('size', 1.0/512)        
         with self.shaders['blur_v'] as shdr:
-            shdr.uniformf('blurSize', 1.0/512);
+            shdr.uniformf('size', 1.0/512)
         
     def clear(self, type=0):        
         self.root.combine()
@@ -312,6 +315,7 @@ class TerrainTree(object):
             pyglet.gl.glPushAttrib(pyglet.gl.GL_POLYGON_BIT)
             pyglet.gl.glPolygonMode (pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
             pyglet.gl.glColor3f(1.0, 0.5, 0.5)
+            
             # draw outlines for highlighted quad
             pyglet.graphics.draw(4, pyglet.gl.GL_QUADS, ('v2f', h.rect.corners))
             pyglet.gl.glPopAttrib()
