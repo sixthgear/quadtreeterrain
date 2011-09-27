@@ -41,6 +41,7 @@ class App(pyglet.window.Window):
         )
                 
         self.play()
+        self.fps_display = pyglet.clock.ClockDisplay()
                 
     def play(self):
         if self.paused:
@@ -85,6 +86,7 @@ class App(pyglet.window.Window):
         drawing.circle(self.player.shape.x, self.player.shape.y, self.player.shape.radius, num=8)
         drawing.circle(self.brush.x, self.brush.y, self.brush.radius, num=32)
         # self.debug_label.draw()
+        self.fps_display.draw()
             
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.BRACKETLEFT:

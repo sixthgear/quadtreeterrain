@@ -92,6 +92,7 @@ class TerrainTree(object):
         self.num_types = 4
                 
         # RENDERING
+        self.tex = pyglet.resource.texture('red.png')
         self.fbchain = framebuffer.FramebufferChain(width=size, height=size)
         self.shaders = {        
             'basic': glsl.Shader(
@@ -108,9 +109,9 @@ class TerrainTree(object):
                         frag=file('shaders/threshold.frag').read())
         }    
         with self.shaders['blur_h'] as shdr:
-            shdr.uniformf('size', 1.0/512)
+            shdr.uniformf('size', 1.0/size)
         with self.shaders['blur_v'] as shdr:
-            shdr.uniformf('size', 1.0/512)
+            shdr.uniformf('size', 1.0/size)
         
     def clear(self, type=0):        
         self.root.combine()
@@ -283,8 +284,8 @@ class TerrainTree(object):
                         pyglet.gl.GL_QUADS, 
                         ('v2f', vertices[type]))
                         
-            # perform 8x gaussian blur                        
-            for i in range(8):
+            # perform 4x 9-tap gaussian blur                        
+            for i in range(4):
                 self.fbchain.draw_fb(shader=self.shaders['blur_h'])
                 self.fbchain.draw_fb(shader=self.shaders['blur_v'])
                     
