@@ -3,7 +3,7 @@
 uniform sampler2D tex0;
 uniform sampler2D tex1;
  
-const float threshold_a = 0.95;
+const float threshold_a = 0.9;
 const float threshold_b = 0.45;
 const float threshold_c = 0.2;
  

@@ -72,6 +72,7 @@ class Framebuffer(object):
         glTexParameteri(self.tex.target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
     	glTexParameteri(self.tex.target, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     	glTexParameteri(self.tex.target, GL_TEXTURE_MIN_FILTER, GL_LINEAR)            
+        # glTexParameteri(self.tex.target, GL_GENERATE_MIPMAP, GL_FALSE)
         glBindTexture(self.tex.target, 0)
                                     
     def bind(self):        

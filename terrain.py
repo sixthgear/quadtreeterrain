@@ -265,8 +265,7 @@ class TerrainTree(object):
                     vertices[node.type] += node.rect.corners[4:] + node.rect.corners[:2] + node.rect.corners[:2]
                 elif node.slope == -1 and node.slope_invert:
                     vertices[node.type] += node.rect.corners[6:] + node.rect.corners[:4] + node.rect.corners[2:4]
-                
-  
+                  
         if mode == RNDR_SHADED: 
             
             # attach our framebuffer for rendering world geometry
@@ -280,11 +279,10 @@ class TerrainTree(object):
                         
                     pyglet.graphics.draw(
                         len(vertices[type]) // 2, 
-                        pyglet.gl.GL_QUADS, 
-                        ('v2f', vertices[type]))
+                        pyglet.gl.GL_QUADS, ('v2f', vertices[type]))
                         
             # perform 9x 9-tap gaussian blur                        
-            for i in range(4):
+            for i in range(8):
                 self.fbchain.draw_fb(shader=self.shaders['blur_h'])    
                 self.fbchain.draw_fb(shader=self.shaders['blur_v'])
                     
