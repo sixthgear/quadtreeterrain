@@ -11,6 +11,8 @@ import collision
 import shapes
 import vector
 
+import time
+
 RNDR_WIREFRAME, RNDR_SHADED = range(2)
 
 class TerrainNode(object):
@@ -67,12 +69,11 @@ class TerrainNode(object):
         # TODO: check for slopes to simplify
         # \
         # . \               
-                                            
+
 class TerrainTree(object):
     """
     Quadtree that represents terrain
     """
-        
     def __init__(self, x, y, size, min_node_size=None, max_level=None, type=0):
                 
         if min_node_size and max_level:
@@ -105,13 +106,13 @@ class TerrainTree(object):
                         # vert=file('shaders/terrain.vert').read(), 
                         frag=file('shaders/blur_v.frag').read()),
             'threshold': glsl.Shader(
-                        # vert=file('shaders/terrain.vert').read(), 
+                        vert=file('shaders/pulse.vert').read(), 
                         frag=file('shaders/threshold.frag').read())
         }    
         with self.shaders['blur_h'] as shdr:
-            shdr.uniformf('size', 1.0/size)
+            shdr.uniformf('size', 1.0 / size)
         with self.shaders['blur_v'] as shdr:
-            shdr.uniformf('size', 1.0/size)
+            shdr.uniformf('size', 1.0 / size)
         
     def clear(self, type=0):        
         self.root.combine()
@@ -161,7 +162,6 @@ class TerrainTree(object):
         x2_sq = (node.rect.x2 - brush.x) ** 2
         y2_sq = (node.rect.y2 - brush.y) ** 2
         brush_r_sq = brush.radius**2
-        # check x
 
         # the x coordinate where the circle enters the bottom
         x_entry_bottom_sq = brush_r_sq - y_sq
@@ -243,8 +243,7 @@ class TerrainTree(object):
         """
         node = node or self.root
         node_stack = [node]
-        vertices = [[],[],[],[]]        
-        
+        vertices = [[],[],[],[]]
         # build world geometry
         # it might be nice to cache this on the gpu with a vbo        
         
@@ -284,12 +283,15 @@ class TerrainTree(object):
                         pyglet.gl.GL_QUADS, 
                         ('v2f', vertices[type]))
                         
-            # perform 4x 9-tap gaussian blur                        
+            # perform 9x 9-tap gaussian blur                        
             for i in range(4):
-                self.fbchain.draw_fb(shader=self.shaders['blur_h'])
+                self.fbchain.draw_fb(shader=self.shaders['blur_h'])    
                 self.fbchain.draw_fb(shader=self.shaders['blur_v'])
                     
             # draw the final fb to the default context
+            with self.shaders['threshold'] as shader:
+                shader.uniformf('time', time.clock())
+                
             self.fbchain.draw(shader=self.shaders['threshold'])
             # self.fbchain.draw(shader=self.shaders['basic'])
             

@@ -109,7 +109,7 @@ class App(pyglet.window.Window):
         elif symbol == pyglet.window.key.SPACE:
             # self.play()
             # self.operation = self.terrain.detect_slopes()
-            # pyglet.clock.schedule_interval(self.do_operation, 1.0/60)            
+            # pyglet.clock.schedule_interval(self.do_operation, 1.0/60)
             pass
         elif symbol == pyglet.window.key.ESCAPE:
             pyglet.app.exit()    
