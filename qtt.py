@@ -24,7 +24,7 @@ class App(pyglet.window.Window):
         self.paused = True
         self.operation = None
 
-        self.terrain = terrain.TerrainTree(0, 0, 500, max_level=5)
+        self.terrain = terrain.TerrainTree(0, 0, 512, max_level=5)
         self.player = obj.GameObject(self.terrain.root.rect.width//2, self.terrain.root.rect.height//2)
         self.brush = shapes.Circle(0, 0, 128)
         self.brush_type = 1

@@ -5,6 +5,7 @@
 # (see http://www.boost.org/LICENSE_1_0.txt)
 #
 
+import ctypes as c
 from pyglet.gl import *
 
 class Shader(object):
@@ -44,8 +45,12 @@ class Shader(object):
 
         # convert the source strings into a ctypes pointer-to-char array, and upload them
         # this is deep, dark, dangerous black magick - don't try stuff like this at home!
-        src = (c_char_p * count)(*strings)
-        glShaderSource(shader, count, cast(pointer(src), POINTER(POINTER(c_char))), None)
+        # src = (c_char_p * count)(*strings)
+        # glShaderSource(shader, count, cast(pointer(src), POINTER(POINTER(c_char))), None)
+
+        buff = c.create_string_buffer(strings)
+        c_text = c.cast(c.pointer(c.pointer(buff)), c.POINTER(c.POINTER(GLchar)))
+        glShaderSource(shader, 1, c_text, None)
 
         # compile the shader
         glCompileShader(shader)
